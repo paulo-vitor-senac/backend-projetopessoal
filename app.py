@@ -6,7 +6,6 @@ from datetime import datetime
 app = Flask(__name__)
 CORS(app)
 
-# ======= BANCO DE DADOS =======
 def get_db():
     conn = sqlite3.connect("visitas.db")
     conn.execute("""
@@ -19,10 +18,9 @@ def get_db():
     """)
     return conn
 
-# ======= REGISTRAR VISITA =======
 @app.route("/track", methods=["POST"])
 def track():
-    ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    ip = request.remote_addr
     user_agent = request.headers.get("User-Agent")
     data_hora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -36,25 +34,31 @@ def track():
 
     return jsonify({"status": "ok"})
 
-# ======= LISTAR VISITAS =======
-@app.route("/visitas", methods=["GET"])
+@app.route("/count")
+def count():
+    conn = get_db()
+    cur = conn.execute("SELECT COUNT(*) FROM acessos")
+    total = cur.fetchone()[0]
+    conn.close()
+    return jsonify({"total": total})
+
+@app.route("/visitas")
 def visitas():
     conn = get_db()
-    cursor = conn.execute("SELECT * FROM acessos ORDER BY id DESC")
-    dados = cursor.fetchall()
+    cur = conn.execute("SELECT * FROM acessos ORDER BY id DESC")
+    dados = cur.fetchall()
     conn.close()
 
-    visitas = [
-        {"id": d[0], "ip": d[1], "user_agent": d[2], "data_hora": d[3]}
-        for d in dados
-    ]
+    visitas_formatadas = []
+    for v in dados:
+        visitas_formatadas.append({
+            "id": v[0],
+            "ip": v[1],
+            "user_agent": v[2],
+            "data_hora": v[3]
+        })
 
-    return jsonify(visitas)
-
-# ======= ROTA PRINCIPAL =======
-@app.route("/")
-def home():
-    return jsonify({"status": "backend ativo!"})
+    return jsonify(visitas_formatadas)
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    app.run()
