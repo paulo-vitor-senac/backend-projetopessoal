@@ -5,11 +5,6 @@ from datetime import datetime
 app = Flask(__name__)
 app.secret_key = "CHAVE_SECRETA_FIXA_AQUI"   # pode ser qualquer coisa segura
 
-
-# ============================
-# BANCO DE DADOS
-# ============================
-
 def init_db():
     conn = sqlite3.connect("visitas.db")
     cursor = conn.cursor()
@@ -53,11 +48,6 @@ def log():
     registrar_visita(pagina, user_agent, ip)
     return {"status": "ok"}
 
-
-# ============================
-# LOGIN
-# ============================
-
 USUARIO_ADMIN = "pauloadm123"
 SENHA_ADMIN = "paulovitor18"
 
@@ -80,11 +70,6 @@ def login():
 def logout():
     session.clear()
     return redirect("/login")
-
-
-# ============================
-# PAINEL (PROTEGIDO)
-# ============================
 
 @app.route("/painel")
 def painel():
