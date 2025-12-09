@@ -1,9 +1,14 @@
-from flask import Flask, render_template, request, redirect, session
+from flask import Flask, request, jsonify
 import sqlite3
 from datetime import datetime
+from flask_cors import CORS
 
 app = Flask(__name__)
-app.secret_key = "CHAVE_SECRETA_FIXA_AQUI"   # pode ser qualquer coisa segura
+CORS(app)   # libera o acesso do frontend estático
+
+# ==========================
+# BANCO DE DADOS
+# ==========================
 
 def init_db():
     conn = sqlite3.connect("visitas.db")
@@ -24,7 +29,6 @@ def init_db():
 
 init_db()
 
-
 def registrar_visita(pagina, user_agent, ip):
     conn = sqlite3.connect("visitas.db")
     cursor = conn.cursor()
@@ -37,7 +41,6 @@ def registrar_visita(pagina, user_agent, ip):
     conn.commit()
     conn.close()
 
-
 @app.route("/log", methods=["POST"])
 def log():
     data = request.json
@@ -46,43 +49,53 @@ def log():
     ip = request.remote_addr
 
     registrar_visita(pagina, user_agent, ip)
-    return {"status": "ok"}
+    return jsonify({"status": "ok"})
+
+
+# =====================================
+# LOGIN (compatível com frontend estático)
+# =====================================
 
 USUARIO_ADMIN = "pauloadm123"
 SENHA_ADMIN = "paulovitor18"
 
-@app.route("/login", methods=["GET", "POST"])
+@app.route("/login", methods=["POST"])
 def login():
-    if request.method == "POST":
-        user = request.form.get("username")
-        senha = request.form.get("password")
+    data = request.get_json()
 
-        if user == USUARIO_ADMIN and senha == SENHA_ADMIN:
-            session["logado"] = True
-            return redirect("/painel")
+    user = data.get("username")
+    senha = data.get("password")
 
-        return render_template("login.html", erro="Usuário ou senha incorretos!")
+    if user == USUARIO_ADMIN and senha == SENHA_ADMIN:
+        return jsonify({"ok": True})
 
-    return render_template("login.html")
+    return jsonify({"ok": False})
 
 
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect("/login")
+# =======================================================
+# API PARA O PAINEL ESTÁTICO BUSCAR AS VISITAS (JSON)
+# =======================================================
 
-@app.route("/painel")
-def painel():
-    if not session.get("logado"):
-        return redirect("/login")
-
+@app.route("/visitas", methods=["GET"])
+def visitas():
     conn = sqlite3.connect("visitas.db")
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM access_logs ORDER BY id DESC")
+
+    cursor.execute("SELECT id, page, user_agent, ip, timestamp FROM access_logs ORDER BY id DESC")
     dados = cursor.fetchall()
     conn.close()
 
-    return render_template("admin-visitas.html", dados=dados)
+    lista = []
+    for row in dados:
+        lista.append({
+            "id": row[0],
+            "page": row[1],
+            "user_agent": row[2],
+            "ip": row[3],
+            "timestamp": row[4]
+        })
+
+    return jsonify(lista)
 
 
 if __name__ == "__main__":
